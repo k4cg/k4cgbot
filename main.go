@@ -4,14 +4,15 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/mb-14/gomarkov"
-	"io/ioutil"
+	"io"
 	"log"
 	"math/rand"
 	"net/http"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/mb-14/gomarkov"
 
 	tb "gopkg.in/tucnak/telebot.v2"
 )
@@ -42,7 +43,7 @@ func loadMarkovCorpus(chatHistoryFile string) *gomarkov.Chain {
 
 	// Parse json
 	jsonFile, _ := os.Open(chatHistoryFile)
-	byteValue, _ := ioutil.ReadAll(jsonFile)
+	byteValue, _ := io.ReadAll(jsonFile)
 	json.Unmarshal(byteValue, &messages)
 
 	// Add Lines to Chain
@@ -72,7 +73,7 @@ func getStatusJson(url string) (map[string]interface{}, error) {
 		return nil, err
 	}
 	defer resp.Body.Close()
-	body, _ := ioutil.ReadAll(resp.Body)
+	body, _ := io.ReadAll(resp.Body)
 	var status map[string]interface{}
 	json.Unmarshal(body, &status)
 	return status, nil
@@ -116,7 +117,17 @@ func main() {
 			b.Send(m.Chat, "Oops... something went wrong. :(")
 			return
 		}
-		b.Send(m.Chat, fmt.Sprintf("Hosts im Wifi: %.0f, Temp: %.1f°C, Tuer: %s, Lautstaerke: %.0f.", status["online"], status["temperature"], status["door"], status["sound"]))
+
+		state := status["state"].(map[string]interface{})
+
+		var doorstate string
+		if state["open"] == true {
+			doorstate = "offen"
+		} else {
+			doorstate = "geschlossen"
+		}
+
+		b.Send(m.Chat, fmt.Sprintf("Tuer: %s", doorstate))
 	})
 
 	// Markov Chain output in Channel
