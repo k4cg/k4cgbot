@@ -119,7 +119,15 @@ func main() {
 		}
 
 		state := status["state"].(map[string]interface{})
-		b.Send(m.Chat, fmt.Sprintf("Tuer: %s", state["open"]))
+
+		var doorstate string
+		if state["open"] == true {
+			doorstate = "offen"
+		} else {
+			doorstate = "geschlossen"
+		}
+
+		b.Send(m.Chat, fmt.Sprintf("Tuer: %s", doorstate))
 	})
 
 	// Markov Chain output in Channel
