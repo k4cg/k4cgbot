@@ -1,5 +1,7 @@
 # k4cgbot
-A Telegram Bot for the K4CG Channel
 
-Currently supports following commands:  
-`/status` Responds with a line like `Hosts im Wifi: 10, Temp: 29.0°C, Tuer: open, Lautstaerke: 1463.`
+A Telegram bot for the K4CG channel
+
+Currently supports following commands:
+- `/status`: Responds with a line like `Tuer: offen, Temperatur: 21.4°C (Stromkasten), Luftfeuchtigkeit: 56% (Stromkasten)`
+- `/sprachassistentin`: Responds with a few meaningful words
