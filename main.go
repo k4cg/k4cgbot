@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"math/rand"
 	"net/http"
 	"os"
 	"strings"
@@ -55,9 +54,6 @@ type SpaceApi struct {
 func loadMarkovCorpus(chatHistoryFile string) *gomarkov.Chain {
 	var messages Messages
 	chain := gomarkov.NewChain(1)
-
-	// init random seed
-	rand.Seed(time.Now().Unix())
 
 	// Parse json
 	jsonFile, _ := os.Open(chatHistoryFile)
