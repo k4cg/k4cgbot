@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"math/rand"
 	"net/http"
 	"os"
 	"strings"
@@ -34,12 +33,27 @@ type Messages struct {
 	} `json:"messages"`
 }
 
+type SpaceApi struct {
+	State struct {
+		Open *bool `json:"open"`
+	} `json:"state"`
+	Sensors struct {
+		Temperature []struct {
+			Location string  `json:"location"`
+			Unit     string  `json:"unit"`
+			Value    float64 `json:"value"`
+		} `json:"temperature"`
+		Humidity []struct {
+			Location string  `json:"location"`
+			Unit     string  `json:"unit"`
+			Value    float64 `json:"value"`
+		} `json:"humidity"`
+	}
+}
+
 func loadMarkovCorpus(chatHistoryFile string) *gomarkov.Chain {
 	var messages Messages
 	chain := gomarkov.NewChain(1)
-
-	// init random seed
-	rand.Seed(time.Now().Unix())
 
 	// Parse json
 	jsonFile, _ := os.Open(chatHistoryFile)
@@ -67,16 +81,48 @@ func getMarkovSentence(chain *gomarkov.Chain) string {
 	return strings.Join(tokens[1:len(tokens)-1], " ")
 }
 
-func getStatusJson(url string) (map[string]interface{}, error) {
+func getStatusJson(url string) (status SpaceApi, err error) {
 	resp, err := http.Get(url)
 	if err != nil {
-		return nil, err
+		return status, err
 	}
 	defer resp.Body.Close()
 	body, _ := io.ReadAll(resp.Body)
-	var status map[string]interface{}
 	json.Unmarshal(body, &status)
 	return status, nil
+}
+
+func statusToString(status SpaceApi) string {
+	var info []string
+
+	// Door status
+	door := "Tuer: "
+	if status.State.Open != nil {
+		if *status.State.Open == true {
+			door += "offen"
+		} else {
+			door += "geschlossen"
+		}
+	} else {
+		door += "unbekannt"
+	}
+	info = append(info, door)
+
+	// Temperature sensor
+	if len(status.Sensors.Temperature) > 0 {
+		// FIXME: For now take the first available sensor
+		temp := status.Sensors.Temperature[0]
+		info = append(info, fmt.Sprintf("Temperatur: %.1f%s (%s)", temp.Value, temp.Unit, temp.Location))
+	}
+
+	// Humidity sensor
+	if len(status.Sensors.Humidity) > 0 {
+		// FIXME: For now take the first available sensor
+		humid := status.Sensors.Humidity[0]
+		info = append(info, fmt.Sprintf("Luftfeuchtigkeit: %.0f%s (%s)", humid.Value, humid.Unit, humid.Location))
+	}
+
+	return strings.Join(info[:], ", ")
 }
 
 func main() {
@@ -118,16 +164,7 @@ func main() {
 			return
 		}
 
-		state := status["state"].(map[string]interface{})
-
-		var doorstate string
-		if state["open"] == true {
-			doorstate = "offen"
-		} else {
-			doorstate = "geschlossen"
-		}
-
-		b.Send(m.Chat, fmt.Sprintf("Tuer: %s", doorstate))
+		b.Send(m.Chat, statusToString(status))
 	})
 
 	// Markov Chain output in Channel
