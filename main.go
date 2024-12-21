@@ -48,6 +48,11 @@ type SpaceApi struct {
 			Unit     string  `json:"unit"`
 			Value    float64 `json:"value"`
 		} `json:"humidity"`
+		Carbondioxide []struct {
+			Location string  `json:"location"`
+			Unit     string  `json:"unit"`
+			Value    float64 `json:"value"`
+		} `json:"carbondioxide"`
 	}
 }
 
@@ -120,6 +125,13 @@ func statusToString(status SpaceApi) string {
 		// FIXME: For now take the first available sensor
 		humid := status.Sensors.Humidity[0]
 		info = append(info, fmt.Sprintf("Luftfeuchtigkeit: %.0f%s (%s)", humid.Value, humid.Unit, humid.Location))
+	}
+
+	// CO2 sensor
+	if len(status.Sensors.Carbondioxide) > 0 {
+		// FIXME: for now take the first available sensor
+		co2 := status.Sensors.Carbondioxide[0]
+		info = append(info, fmt.Sprintf("CO2: %.0f%s (%s)", co2.Value, co2.Unit, co2.Location))
 	}
 
 	return strings.Join(info[:], ", ")
