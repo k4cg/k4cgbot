@@ -1,0 +1,5 @@
+FROM nixos/nix:2.26.3
+WORKDIR /tmp/k4cgbot
+COPY . .
+RUN nix-build default.nix
+CMD ["bash"]
