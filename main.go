@@ -35,7 +35,8 @@ type Messages struct {
 
 type SpaceApi struct {
 	State struct {
-		Open *bool `json:"open"`
+		Open       *bool  `json:"open"`
+		LastChange *int64 `json:"lastchange"`
 	} `json:"state"`
 	Sensors struct {
 		Temperature []struct {
@@ -97,17 +98,37 @@ func getStatusJson(url string) (status SpaceApi, err error) {
 	return status, nil
 }
 
+func openSince(lastchange int64) string {
+	diff := time.Now().Sub(time.Unix(lastchange, 0)).Round(time.Second)
+
+	d := diff / (time.Hour * 24)
+	diff -= d * (time.Hour * 24)
+	h := diff / time.Hour
+	diff -= h * time.Hour
+	m := diff / time.Minute
+	diff -= m * time.Minute
+	s := diff / time.Second
+
+	if d > 0 {
+		return fmt.Sprintf("%dd%dh", d, h)
+	} else if h > 0 {
+		return fmt.Sprintf("%dh%dm", h, m)
+	}
+	return fmt.Sprintf("%dm%ds", m, s)
+}
+
 func statusToString(status SpaceApi, sensorLocation string) string {
 	var info []string
 
 	// Door status
 	door := "Tür: "
-	if status.State.Open != nil {
+	if status.State.Open != nil && status.State.LastChange != nil {
 		if *status.State.Open == true {
 			door += "offen"
 		} else {
 			door += "geschlossen"
 		}
+		door += fmt.Sprintf(" (seit %s)", openSince(*status.State.LastChange))
 	} else {
 		door += "unbekannt"
 	}
