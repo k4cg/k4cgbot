@@ -57,24 +57,38 @@ type SpaceApi struct {
 	}
 }
 
-func loadMarkovCorpus(chatHistoryFile string) *gomarkov.Chain {
+func loadMarkovCorpus(chatHistoryFile string) (chain *gomarkov.Chain, err error) {
 	var messages Messages
-	chain := gomarkov.NewChain(1)
+	chain = gomarkov.NewChain(1)
 
 	// Parse json
-	jsonFile, _ := os.Open(chatHistoryFile)
-	byteValue, _ := io.ReadAll(jsonFile)
+	jsonFile, err := os.Open(chatHistoryFile)
+	if err != nil {
+		return nil, err
+	}
+	defer jsonFile.Close()
+
+	byteValue, err := io.ReadAll(jsonFile)
+	if err != nil {
+		return nil, err
+	}
 	json.Unmarshal(byteValue, &messages)
 
 	// Add Lines to Chain
+	addedLine := false
 	for i := 0; i < len(messages.Messages); i++ {
 		line := messages.Messages[i].Text
 		if len(line) > 1 {
 			chain.Add(strings.Split(line, " "))
+			addedLine = true
 		}
 	}
 
-	return chain
+	if !addedLine {
+		return nil, io.EOF
+	}
+
+	return chain, nil
 }
 
 func getMarkovSentence(chain *gomarkov.Chain) string {
@@ -215,7 +229,11 @@ func main() {
 	}
 
 	// Load and parse the telegram chat corpus at startup
-	chain := loadMarkovCorpus(*chatHistoryFile)
+	chain, err := loadMarkovCorpus(*chatHistoryFile)
+	if err != nil {
+		log.Fatalf("Failed to parse chat history file %s", *chatHistoryFile)
+		return
+	}
 
 	// K4CG spacestatus in channel
 	b.Handle("/status", func(c tb.Context) error {
