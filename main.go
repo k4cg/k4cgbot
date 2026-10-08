@@ -1,11 +1,13 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
 	"log"
+	"math/rand"
 	"net/http"
 	"os"
 	"strings"
@@ -89,6 +91,32 @@ func loadMarkovCorpus(chatHistoryFile string) (chain *gomarkov.Chain, err error)
 	}
 
 	return chain, nil
+}
+
+func loadJokes(jokesFile string) (jokes []string, err error) {
+	file, err := os.Open(jokesFile)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		joke, isJoke := strings.CutPrefix(scanner.Text(), "- ")
+		if isJoke {
+			jokes = append(jokes, joke)
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+
+	if len(jokes) == 0 {
+		return nil, io.EOF
+	}
+
+	return jokes, nil
 }
 
 func getMarkovSentence(chain *gomarkov.Chain) string {
@@ -186,6 +214,7 @@ const (
 	ENV_SPACEAPI  = "K4B_SPACEAPI"
 	ENV_CHATHIST  = "K4B_CHATHIST"
 	ENV_SENSORLOC = "K4B_SENSORLOC"
+	ENV_JOKES     = "K4B_JOKES"
 )
 
 func main() {
@@ -195,6 +224,7 @@ func main() {
 		spacestatusUrl  = flag.String("spacestatusurl", "", fmt.Sprintf("The URL to the space status (env %s)", ENV_SPACEAPI))
 		chatHistoryFile = flag.String("chathistoryfile", "", fmt.Sprintf("The JSON Telegram chat export to build markov chains from (env %s)", ENV_CHATHIST))
 		sensorLocation  = flag.String("sensorlocation", "", fmt.Sprintf("Location of sensor information to add to the status message (env %s)", ENV_SENSORLOC))
+		jokesFile       = flag.String("jokesfile", "", fmt.Sprintf("A list of jokes (env %s)", ENV_JOKES))
 	)
 	flag.Parse()
 
@@ -211,9 +241,12 @@ func main() {
 	if len(*sensorLocation) == 0 {
 		*sensorLocation = os.Getenv(ENV_SENSORLOC)
 	}
+	if len(*jokesFile) == 0 {
+		*jokesFile = os.Getenv(ENV_JOKES)
+	}
 
 	// Basic input check
-	if len(*apiToken) == 0 || len(*spacestatusUrl) == 0 || len(*chatHistoryFile) == 0 || len(*sensorLocation) == 0 {
+	if len(*apiToken) == 0 || len(*spacestatusUrl) == 0 || len(*chatHistoryFile) == 0 || len(*sensorLocation) == 0 || len(*jokesFile) == 0 {
 		flag.Usage()
 		os.Exit(1)
 	}
@@ -235,6 +268,14 @@ func main() {
 		return
 	}
 
+	// Load jokes file
+	jokes, err := loadJokes(*jokesFile)
+	if err != nil {
+		log.Fatalf("Failed to parse jokes file %s", *jokesFile)
+		return
+	}
+	numJokes := len(jokes)
+
 	// K4CG spacestatus in channel
 	b.Handle("/status", func(c tb.Context) error {
 		status, err := getStatusJson(*spacestatusUrl)
@@ -249,6 +290,11 @@ func main() {
 	b.Handle("/sprachassistentin", func(c tb.Context) error {
 		sentence := getMarkovSentence(chain)
 		return c.Send(sentence)
+	})
+
+	// Flachwitz in channel
+	b.Handle("/flachwitz", func(c tb.Context) error {
+		return c.Send(jokes[rand.Intn(numJokes)])
 	})
 
 	b.Start()
